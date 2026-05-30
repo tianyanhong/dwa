@@ -662,6 +662,25 @@ float DWAPlanner::calc_obs_cost(const std::vector<State> &traj)
   return obs_range_ - min_dist; //为正为负  接近0最好
 }
 
+bool DWAPlanner::calc_obs_cost3(const std::vector<State> &traj)
+{
+  for (const auto &state : traj)
+  {
+    for (const auto &obs : obs_list_.poses) //障碍物的点到足迹的最小距离。
+    {
+      float dist;
+      if (use_footprint_)
+      {
+        const geometry_msgs::PolygonStamped footprint = move_footprint(state);
+        if(is_inside_of_robot(obs.position, footprint, state))
+        {
+          return false;
+        }
+      }
+    }
+  }
+  return true; //为正为负  接近0最好
+}
 
 
 float DWAPlanner::calc_speed_cost(const std::vector<State> &traj)
@@ -1582,7 +1601,7 @@ float DWAPlanner::calc_obs_cost2(const State &state)
 std::vector<DWAPlanner::State> DWAPlanner::AstartSearch2(DWAPlanner::State start,const Eigen::Vector3d  goal)
 {
 
-  std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open;
+  
   std::unordered_set<int> closed;
   std::vector<DWAPlanner::State> path_points;
 
@@ -1593,12 +1612,18 @@ std::vector<DWAPlanner::State> DWAPlanner::AstartSearch2(DWAPlanner::State start
   Node* start_node = new Node{0,start, 0.0, heuristic(start, end), {start}, nullptr};  
 
   auto makeKey = [&](int i, int j) { return i * velocity_samples_ + j; };
-  open.push(start_node);
+  open_.push(start_node);
+
+  Node* end_node = new Node{0,end, 0.0, heuristic(start, end), {end}, nullptr};  
+  open_end_.push(end_node);
   auto start_t = std::chrono::high_resolution_clock::now();
-  while (!open.empty())
+  while (!open_.empty()&&open_end_.empty())
   {
-    Node* current = open.top();
-    open.pop();
+    Node* current = open_.top();
+    Node* current_end = open_end_.top();
+
+    open_.pop();
+    open_end_.pop();
 
     if (dist_to_goal_th_ > heuristic(current->state,end) || calc_predict_path_cost(current->path_points,end) < 0.1) //路径中的点和目标点小于阈值0.1.
     {
@@ -1621,17 +1646,23 @@ std::vector<DWAPlanner::State> DWAPlanner::AstartSearch2(DWAPlanner::State start
     double last_h = 0;
 
     std::vector<DWAPlanner::Node*> tri = dwa_planning2(current,goal);
-    for (Node* nb : tri)  
-    {
-      nb->g = heuristic(nb->state,end); 
-      open.push(nb);
-    }
+     
+    // for (Node* nb : tri)  
+    // {
+    //   nb->g = heuristic(nb->state,end);
+    //   // open_.push(nb);
+    // }
     auto end_t = std::chrono::high_resolution_clock::now();
     auto duration_t = std::chrono::duration_cast<std::chrono::milliseconds>(end_t - start_t).count();
     if(duration_t > 60000)
     {
       break;
     }
+  }
+
+  while (!open_.empty())
+  {
+      open_.pop();
   }
   return {};  
 }
@@ -1688,21 +1719,19 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
 
       
       std::pair<std::vector<State>, bool> best_traj;
-      best_traj.first = nb->path_points;
+      best_traj.first = nb->path_points; //所有的路径点均的足迹均不含障碍物点就是优的。
       best_traj.second = true;
 
       // costs.push_back(cost);
-      if ( nb->h  == 1e6)  
-      {
-        traj.second = false;
-      }
-      else
-      {
-        traj.second = true;
-      }
+
+      open_.push(nb);
       trajectories.push_back(nb);
 
       trajectories_res.push_back(best_traj);
+      if (calc_obs_cost3(traj.first))  
+      {
+        break;
+      }
     }
 
     if (dynamic_window.min_yawrate_ < 0.0 && 0.0 < dynamic_window.max_yawrate_)
@@ -1734,12 +1763,17 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
       {
         traj.second = true;
       }
+      open_.push(nb);
       trajectories.push_back(nb);
 
       trajectories_res.push_back(best_traj);
+
+      if (calc_obs_cost3(traj.first))  //没有发生碰撞的路径就是好路径？？？、？？？？？？？？？？？？？？？？？？？
+      {
+        break;
+      }
     }
   }
-
 
   visualize_trajectories(trajectories_res, candidate_trajectories_pub_);  
 

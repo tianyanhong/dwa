@@ -53,4 +53,11 @@
         <remap from="/path" to="$(arg path)"/>
         <remap from="/target_velocity" to="$(arg target_velocity)"/>
     </node>
+  <node
+    pkg="rviz"
+    type="rviz"
+    name="rviz"
+    args="-d $(find dwa_planner)/rviz/dwa.rviz"
+    output="screen">
+  </node>
 </launch>

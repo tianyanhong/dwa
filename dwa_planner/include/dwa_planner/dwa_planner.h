@@ -610,6 +610,7 @@ struct SCurve1D
 
   std::vector<State> generate_trajectory2(State state,const double velocity, const double yawrate);
   float calc_predict_path_cost(const std::vector<State> &traj,const State& goal);
+  bool calc_obs_cost3(const std::vector<State> &traj);
 protected:
   std::string global_frame_;
   std::string robot_frame_;
@@ -694,6 +695,8 @@ protected:
   ros::Publisher pub_footprint_msg_;
 
   std::unordered_map<int, Node*> nodes_;
+  std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_;
+  std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_end_;
 };
 
 #endif  // DWA_PLANNER_DWA_PLANNER_H
