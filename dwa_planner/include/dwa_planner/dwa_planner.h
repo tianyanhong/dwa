@@ -268,17 +268,21 @@ struct SCurve1D
   private:
   };
 
+  
+
+
     //执行A*的相关数据结构
   struct Node
   {
-    int lable;
+    bool visited = false;
     State state;
     double g, h;  //g是到目标点的 h是距离的。
     std::vector<State> path_points;
     Node* parent;
     //路径点
+    Node* children[63];
 
-    double f() const { return g + h; }
+    double f() const { return g; }//g + h; 
   };
 
   struct NodeComparator
@@ -605,8 +609,9 @@ struct SCurve1D
 
   std::vector<State> AstartSearch2(State start,const Eigen::Vector3d goal);
 
-  std::vector<Node*>
-  dwa_planning2(Node* start,const Eigen::Vector3d goal);
+  // std::vector<Node*>
+  // dwa_planning2(Node* start,const Eigen::Vector3d goal);
+  bool dwa_planning2(Node* start,const Eigen::Vector3d goal, double dis);
 
   std::vector<State> generate_trajectory2(State state,const double velocity, const double yawrate);
   float calc_predict_path_cost(const std::vector<State> &traj,const State& goal);
@@ -652,6 +657,7 @@ protected:
   bool has_reached_;
   int velocity_samples_;
   int yawrate_samples_;
+  int half_yawrate_samples_;
   int sim_time_samples_;
   int subscribe_count_th_;
   int odom_not_subscribe_count_;
@@ -697,6 +703,8 @@ protected:
   std::unordered_map<int, Node*> nodes_;
   std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_;
   std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_end_;
+  std::pair<std::vector<State>, bool> best_traj_;
+  std::vector<std::pair<std::vector<State>, bool>> trajectories_res_;
 };
 
 #endif  // DWA_PLANNER_DWA_PLANNER_H
