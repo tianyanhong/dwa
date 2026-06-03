@@ -1707,6 +1707,12 @@ bool DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goa
   }
   // std::vector<Node*> trajectories;
   // std::vector<std::pair<std::vector<State>, bool>> trajectories_res;
+  if(calc_predict_path_cost(local_path_,start->state) > 1.0)
+  {
+
+    return false;
+  
+  }
 
 
   if (dist_to_goal_th_ > heuristic(start->state,end) || calc_predict_path_cost(start->path_points,end) < 0.1) //路径中的点和目标点小于阈值0.1.
