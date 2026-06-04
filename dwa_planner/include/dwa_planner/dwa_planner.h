@@ -41,6 +41,7 @@
 
 #include <thread>
 #include <chrono>
+#include <sensor_msgs/PointCloud2.h>
 
 
 /**
@@ -611,6 +612,36 @@ struct SCurve1D
   std::vector<State> generate_trajectory2(State state,const double velocity, const double yawrate);
   float calc_predict_path_cost(const std::vector<State> &traj,const State& goal);
   bool calc_obs_cost3(const std::vector<State> &traj);
+  double getYawFromPose(const geometry_msgs::PoseStamped& pose);
+  std::vector<State> smoothInterpolate(
+    const State& start,
+    const State& goal,
+    double T,
+    int N );
+  bool isPathPointInCollision2(
+      const std::vector<State>& path,
+      const std::vector<geometry_msgs::Point>& obstacles);
+  void quadraticBSplineInterp(
+      const Eigen::Vector2d& Q0,
+      const Eigen::Vector2d& Q1,
+      const Eigen::Vector2d& Q2,
+      Eigen::Vector2d& P0,
+      Eigen::Vector2d& P1,
+      Eigen::Vector2d& P2);
+  Eigen::Vector2d evalQuadraticBSpline(
+      const Eigen::Vector2d& P0,
+      const Eigen::Vector2d& P1,
+      const Eigen::Vector2d& P2,
+      double u);
+  std::vector<State>  generateTrajectory(
+      const Eigen::Vector2d& Q0,
+      const Eigen::Vector2d& Q1,
+      const Eigen::Vector2d& Q2,
+      int N);
+  std::vector<State> sampleBSpline(   
+      const Eigen::Vector2d& Q0,
+      const Eigen::Vector2d& Q1,
+      const Eigen::Vector2d& Q2,int N); 
 protected:
   std::string global_frame_;
   std::string robot_frame_;
@@ -666,6 +697,7 @@ protected:
   ros::Publisher predict_footprints_pub_;
   ros::Publisher finish_flag_pub_;
   ros::Publisher path_cloud_pub_;
+  ros::Publisher cloud_pub_;
 
   ros::Subscriber dist_to_goal_th_sub_;
   ros::Subscriber edge_on_global_path_sub_;
@@ -696,7 +728,7 @@ protected:
 
   std::unordered_map<int, Node*> nodes_;
   std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_;
-  std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_end_;
+  
 };
 
 #endif  // DWA_PLANNER_DWA_PLANNER_H

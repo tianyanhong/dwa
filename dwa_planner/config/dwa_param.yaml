@@ -2,7 +2,7 @@
 TARGET_VELOCITY: 0.55 #1.0 #0.55 # [m/s]
 
 # Simulation Parameters
-PREDICT_TIME: 2.0     # [s]  #决定了仿真路径的长度
+PREDICT_TIME: 2.0    # [s]  #决定了仿真路径的长度
 SIM_TIME_SAMPLES: 10         #路径的点数
 SIM_PERIOD: 0.1       # [s]
 SIM_DIRECTION: 0.8  #1.57   # [rad]

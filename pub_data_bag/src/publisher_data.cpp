@@ -113,7 +113,7 @@ void goal_pub_function(ros::Publisher &goal_pub_msg)
   goal.header.stamp = ros::Time::now();
 
   goal.pose.position.x = 5.0;
-  goal.pose.position.y = 0.0;
+  goal.pose.position.y = 4.0;
   goal.pose.position.z = 0.0;
 
   goal.pose.orientation.w = 1.0;  // 朝向 0°
@@ -158,18 +158,16 @@ void pub_scan(ros::Publisher &pub_scan_msg)
 
     // ✅ 正前方 5m 处障碍物
     int front_index = 185;
-    for(int i= front_index;i < (front_index + 10);i++)
+    for(int i= front_index;i < (front_index + 100);i++)
     {
-        scan.ranges[i] = 2.0; 
+        scan.ranges[i] = 1.5; 
     }
 
-    
-
-    // int front_index_2 = 140;
-    // for(int i= front_index_2;i < (front_index_2 + 5);i++)
-    // {
-    //     scan.ranges[i] = 1.5; 
-    // }
+    int front_index_2 = 180;
+    for(int i= front_index_2;i < (front_index_2 + 50);i++)
+    {
+        scan.ranges[i] = 3.0; 
+    }
   scan.header.stamp = ros::Time::now();
   pub_scan_msg.publish(scan);
 

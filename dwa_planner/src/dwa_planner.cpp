@@ -36,6 +36,7 @@ DWAPlanner::DWAPlanner(void)
   // target_velocity_sub_ = nh_.subscribe("/target_velocity", 1, &DWAPlanner::target_velocity_callback, this);
 
   sim_time_step = predict_time_ / static_cast<double>(sim_time_samples_); //仿真步长 1s/10 = 0.01s
+  cloud_pub_ =nh_.advertise<sensor_msgs::PointCloud2>("points", 1);
 
 
   if (!use_footprint_)
@@ -607,7 +608,7 @@ bool DWAPlanner::check_collision(const std::vector<State> &traj)
 DWAPlanner::Window DWAPlanner::calc_dynamic_window(void)
 {
   Window window;
-  ROS_INFO("current_cmd_vel_ x = %lf, target_velocity_ = %lf", current_cmd_vel_.linear.x,target_velocity_);
+  // ROS_INFO("current_cmd_vel_ x = %lf, target_velocity_ = %lf", current_cmd_vel_.linear.x,target_velocity_);
   window.min_velocity_ = std::max((current_cmd_vel_.linear.x - max_deceleration_ * sim_period_), min_velocity_);
   window.max_velocity_ = std::min((current_cmd_vel_.linear.x + max_acceleration_ * sim_period_), target_velocity_);
   window.min_yawrate_ = std::max((current_cmd_vel_.angular.z - max_d_yawrate_ * sim_period_), -max_yawrate_);
@@ -1102,7 +1103,7 @@ void DWAPlanner::visualize_trajectories(
     visualization_msgs::Marker v_trajectory = create_marker_msg(i, v_path_width_ * 0.4, color, trajectories[i].first);
     v_trajectories.markers.push_back(v_trajectory);
   }
-  ROS_INFO("pub traj");
+  // ROS_INFO("pub traj");
   pub.publish(v_trajectories);
 }
 
@@ -1224,6 +1225,24 @@ bool DWAPlanner::isPathPointInCollision(
     if (is_inside_of_robot(obs,footprint,state))
     {
       return true;
+    }
+  }
+  return false;
+}
+
+bool DWAPlanner::isPathPointInCollision2(
+    const std::vector<DWAPlanner::State>& path,
+    const std::vector<geometry_msgs::Point>& obstacles)
+{
+  for(auto s:path)
+  {
+    for (const auto& obs : obstacles)
+    {
+      const geometry_msgs::PolygonStamped footprint = move_footprint(s);
+      if (is_inside_of_robot(obs,footprint,s))
+      {
+        return true;
+      }
     }
   }
   return false;
@@ -1529,37 +1548,6 @@ std::vector<DWAPlanner::Node*> DWAPlanner::getNeighbors(DWAPlanner::Node* node, 
       0.0,
       +yawrate_resolution
   };
-  // for (auto dv : dv_list){
-  //   for (auto dw : dw_list){ 
-  //     if (valid(node->state.velocity_ + dv, node->state.yawrate_ + dw))
-  //     {
-  //         ROS_INFO("Nodes vector size: %lf, %lf", node->state.velocity_ + dv ,node->state.yawrate_ + dw);
-  //       // State state{v+dv,w+dw};//状态量的赋值 
-  //       Node* nb = new Node; 
-  //       nb->state = motion_r(node->state, node->state.velocity_ + dv, node->state.yawrate_ + dw);
-  //       nb->g = node->g + calc_obs_cost2(nb->state);
-  //       nb->h = calc_obs_cost2(nb->state);
-  //       nb->parent = node;
-  //       if(dv == -velocity_resolution)
-  //       {
-  //         nb->x = node->x - 1;
-  //       }else if(dv == velocity_resolution){
-  //         nb->x = node->x + 1;
-  //       }else{
-  //         nb->x = node->x;
-  //       }
-  //       if(dw == -yawrate_resolution)
-  //       {
-  //         nb->y = node->y - 1;
-  //       }else if(dw == yawrate_resolution){
-  //         nb->y = node->y + 1;
-  //       }else{
-  //         nb->y = node->y;  
-  //       }
-  //       neighbors.push_back(nb);
-  //     }
-  //   }
-  // }
 
   ROS_INFO("Nodes vector size: %lu", neighbors.size());
   return neighbors;
@@ -1607,35 +1595,122 @@ std::vector<DWAPlanner::State> DWAPlanner::AstartSearch2(DWAPlanner::State start
 
   //速度和角速度的分辨率作为搜索的索引。
   const Window dynamic_window = calc_dynamic_window();
-  State end(goal[0],goal[1],0.0,0.0,0.0,0);
+  State end(goal[0],goal[1],goal[2],0.0,0.0,0);
+  Eigen::Vector2d A(goal[0],goal[1]);
+  Eigen::Vector2d forward(cos(goal[2]),sin(goal[2]));
+  Eigen::Vector2d A_dir = -forward;
 
   Node* start_node = new Node{0,start, 0.0, heuristic(start, end), {start}, nullptr};  
 
   auto makeKey = [&](int i, int j) { return i * velocity_samples_ + j; };
   open_.push(start_node);
 
-  Node* end_node = new Node{0,end, 0.0, heuristic(start, end), {end}, nullptr};  
-  open_end_.push(end_node);
   auto start_t = std::chrono::high_resolution_clock::now();
-  while (!open_.empty()&&open_end_.empty())
+  std::vector<State> path;
+  constexpr double EPS = 1e-9;
+
+
+  while (!open_.empty())
   {
     Node* current = open_.top();
-    Node* current_end = open_end_.top();
-
     open_.pop();
-    open_end_.pop();
-
-    if (dist_to_goal_th_ > heuristic(current->state,end) || calc_predict_path_cost(current->path_points,end) < 0.1) //路径中的点和目标点小于阈值0.1.
+    double current_dis = heuristic(current->state,end);
+    if (dist_to_goal_th_ > current_dis || calc_predict_path_cost(current->path_points,end) < 0.1) //路径中的点和目标点小于阈值0.1.
     {
       //路径的长度必须大于原点到目标点的长度。
       if(calc_path_length(current->path_points) <= heuristic(start_node->state,end) + 0.2)
       {
         continue;
       }
-      std::vector<State> path;
       path = current->path_points;
       ROS_INFO("Successfully obtained the path");
       return path;
+    }
+
+    //判断方向上是否存在交点
+    Eigen::Vector2d B(current->state.x_,current->state.y_);
+    Eigen::Vector2d B_dir(cos(current->state.yaw_),sin(current->state.yaw_));
+
+    Eigen::Vector2d dp ((B.x() - A.x()),(B.y()-A.y()));
+    double cross = A_dir.x() * B_dir.y() - A_dir.y() * B_dir.x();
+    double t = (dp.x()*A_dir.y() - dp.y()*A_dir.x()) / cross;
+    double s = (dp.x()*B_dir.y() - dp.y()*B_dir.x()) / cross;
+
+    if( t >= 0 && s >= 0 )  //存在交点
+    {
+      ROS_INFO("t > 0  && s > 0 cross = %lf ,t = %lf,s = %lf",cross,t,s);
+      Eigen::Vector2d P0(current->state.x_,current->state.y_);
+      Eigen::Vector2d P1(B.x()+ t*B_dir.x(),B.y()+ t*B_dir.y());
+      Eigen::Vector2d P2(goal[0],goal[1]);
+      
+      //P0 和 P1 之间的距离小于0.2 就采用插值的方法
+      double dis = std::sqrt((P0.x() - P1.x())*(P0.x() - P1.x()) + (P0.y() - P1.y())*(P0.y() - P1.y()));
+      std::vector<State> states;
+
+      if(dis > 0.3)
+      {
+        // states = smoothInterpolate(current->state,end,1.0,20);
+        states = sampleBSpline(P0,P1,P2,10);
+        if(!isPathPointInCollision2(states, obstacles_points_))
+        {
+          //路径点+插值的路径点。
+          path = current->path_points;
+          ROS_INFO("Successfully obtained the path");
+          path.insert(path.end(),
+                    states.begin(), states.end());
+          return path;
+        }
+        
+      }
+      
+
+      State p1(current->path_points.back().x_,current->path_points.back().y_,0.0,0.0,0.0,0);
+      State p2(B.x()+ t*B_dir.x(),B.y()+ t*B_dir.y(),0.0,0.0,0.0,0);// p2(P1.x(),P1.y(),0.0,0.0,0.0,0);//
+      State p3(goal[0],goal[1],goal[2],0.0,0.0,0);
+
+      sensor_msgs::PointCloud2 cloud;
+      cloud.header.frame_id = "base_link";
+      cloud.header.stamp = ros::Time::now();
+      cloud.height = 1;
+      cloud.width  = 3;
+      cloud.is_bigendian = false;
+      cloud.is_dense = true;
+
+      cloud.fields.resize(3);
+      cloud.fields[0].name = "x";
+      cloud.fields[0].offset = 0;
+      cloud.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
+      cloud.fields[0].count = 1;
+
+      cloud.fields[1].name = "y";
+      cloud.fields[1].offset = 4;
+      cloud.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
+      cloud.fields[1].count = 1;
+
+      cloud.fields[2].name = "z";
+      cloud.fields[2].offset = 8;
+      cloud.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
+      cloud.fields[2].count = 1;
+
+      cloud.point_step = 12;
+      cloud.row_step = cloud.point_step * cloud.width;
+      cloud.data.resize(cloud.row_step);
+
+      float points[3][3] = {
+          {current->path_points.back().x_,current->path_points.back().y_,0.0},
+          {P1.x(),P1.y(),0.0},
+          {goal[0],goal[1],0.0}
+      };
+
+      memcpy(&cloud.data[0], points, cloud.data.size());
+
+      cloud_pub_.publish(cloud);
+      
+
+      // visualize_trajectory(best_traj.first, selected_trajectory_pub_);
+
+
+    
     }
 
     
@@ -1647,11 +1722,11 @@ std::vector<DWAPlanner::State> DWAPlanner::AstartSearch2(DWAPlanner::State start
 
     std::vector<DWAPlanner::Node*> tri = dwa_planning2(current,goal);
      
-    // for (Node* nb : tri)  
-    // {
-    //   nb->g = heuristic(nb->state,end);
-    //   // open_.push(nb);
-    // }
+    for (Node* nb : tri)  
+    {
+      nb->g = heuristic(nb->state,end);
+      open_.push(nb);
+    }
     auto end_t = std::chrono::high_resolution_clock::now();
     auto duration_t = std::chrono::duration_cast<std::chrono::milliseconds>(end_t - start_t).count();
     if(duration_t > 60000)
@@ -1684,7 +1759,7 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
   costs.reserve(costs_size);
 
   //速度和角速度的划分
-  ROS_INFO("dynamic_window.max_velocity_  = %lf,dynamic_window.min_velocity_ = %lf",dynamic_window.max_velocity_ ,dynamic_window.min_velocity_);
+  // ROS_INFO("dynamic_window.max_velocity_  = %lf,dynamic_window.min_velocity_ = %lf",dynamic_window.max_velocity_ ,dynamic_window.min_velocity_);
 
   const double velocity_resolution =
       std::max((dynamic_window.max_velocity_ - dynamic_window.min_velocity_) / (velocity_samples_ - 1), DBL_EPSILON);
@@ -1692,9 +1767,10 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
       std::max((dynamic_window.max_yawrate_ - dynamic_window.min_yawrate_) / (yawrate_samples_ - 1), DBL_EPSILON);
   // ROS_INFO("velocity_resolution = %lf,yawrate_resolution = %lf",velocity_resolution,yawrate_resolution);
   // int available_traj_count = 0; //有效的轨迹计数
-  for (int i = 0; i < velocity_samples_; i++)
-  {
-    const double v = dynamic_window.min_velocity_ + velocity_resolution * i;
+  // for (int i = 0; i < velocity_samples_; i++)
+  // {
+    // const double v = dynamic_window.min_velocity_ + velocity_resolution * i;
+    const double v = 0.5; 
     for (int j = 0; j < yawrate_samples_; j++)
     {
       std::pair<std::vector<State>, bool> traj;
@@ -1724,56 +1800,56 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
 
       // costs.push_back(cost);
 
-      open_.push(nb);
+      // open_.push(nb);
       trajectories.push_back(nb);
 
       trajectories_res.push_back(best_traj);
-      if (calc_obs_cost3(traj.first))  
-      {
-        break;
-      }
-    }
-
-    if (dynamic_window.min_yawrate_ < 0.0 && 0.0 < dynamic_window.max_yawrate_)
-    {
-      std::pair<std::vector<State>, bool> traj;
-      //1.计算轨迹
-      traj.first = generate_trajectory2(start->state,v,start->state.yawrate_);  //state 为计算轨迹的最后一个状态量
-      //2.评估
-      Node* nb = new Node; 
-      nb->state = traj.first.back(); //motion_r(start->state, start->state.velocity_ + v , start->state.yawrate_);
-      nb->h = start->h + calc_obs_cost(traj.first)+calc_path_cost(traj.first); //路线点到障碍物的 = 上一个+当前的。 // 到目标点的
-      nb->parent = start;
-      nb->path_points = traj.first; //start->path_points; // 循环累加重新赋值；  //第一次的+第二次的
-      nb->lable +=1;
-      // for(auto p:traj.first)
+      // if (calc_obs_cost3(traj.first))  
       // {
-      //   nb->path_points.push_back(p);
+      //   break;
       // }
-
-      // ROS_INFO("nb->path_points %d",nb->path_points.size());
-      std::pair<std::vector<State>, bool> best_traj;
-      best_traj.first = nb->path_points;
-      best_traj.second = true;
-      if ( nb->h  == 1e6)  
-      {
-        traj.second = false;
-      }
-      else
-      {
-        traj.second = true;
-      }
-      open_.push(nb);
-      trajectories.push_back(nb);
-
-      trajectories_res.push_back(best_traj);
-
-      if (calc_obs_cost3(traj.first))  //没有发生碰撞的路径就是好路径？？？、？？？？？？？？？？？？？？？？？？？
-      {
-        break;
-      }
     }
-  }
+
+    // if (dynamic_window.min_yawrate_ < 0.0 && 0.0 < dynamic_window.max_yawrate_)
+    // {
+    //   std::pair<std::vector<State>, bool> traj;
+    //   //1.计算轨迹
+    //   traj.first = generate_trajectory2(start->state,v,start->state.yawrate_);  //state 为计算轨迹的最后一个状态量
+    //   //2.评估
+    //   Node* nb = new Node; 
+    //   nb->state = traj.first.back(); //motion_r(start->state, start->state.velocity_ + v , start->state.yawrate_);
+    //   nb->h = start->h + calc_obs_cost(traj.first)+calc_path_cost(traj.first); //路线点到障碍物的 = 上一个+当前的。 // 到目标点的
+    //   nb->parent = start;
+    //   nb->path_points = traj.first; //start->path_points; // 循环累加重新赋值；  //第一次的+第二次的
+    //   nb->lable +=1;
+    //   // for(auto p:traj.first)
+    //   // {
+    //   //   nb->path_points.push_back(p);
+    //   // }
+
+    //   // ROS_INFO("nb->path_points %d",nb->path_points.size());
+    //   std::pair<std::vector<State>, bool> best_traj;
+    //   best_traj.first = nb->path_points;
+    //   best_traj.second = true;
+    //   if ( nb->h  == 1e6)  
+    //   {
+    //     traj.second = false;
+    //   }
+    //   else
+    //   {
+    //     traj.second = true;
+    //   }
+    //   // open_.push(nb);
+    //   trajectories.push_back(nb);
+
+    //   trajectories_res.push_back(best_traj);
+
+    //   // if (calc_obs_cost3(traj.first))  //没有发生碰撞的路径就是好路径？？？、？？？？？？？？？？？？？？？？？？？
+    //   // {
+    //   //   break;
+    //   // }
+    // }
+  // }
 
   visualize_trajectories(trajectories_res, candidate_trajectories_pub_);  
 
@@ -1792,4 +1868,150 @@ std::vector<DWAPlanner::State> DWAPlanner::generate_trajectory2(DWAPlanner::Stat
   }
   return trajectory;
 }
+
+double DWAPlanner::getYawFromPose(const geometry_msgs::PoseStamped& pose)
+{
+    tf2::Quaternion q(
+        pose.pose.orientation.x,
+        pose.pose.orientation.y,
+        pose.pose.orientation.z,
+        pose.pose.orientation.w
+    );
+
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    return yaw;  // 弧度
+}
+// T:路径长度/期望速度
+std::vector<DWAPlanner::State> DWAPlanner::smoothInterpolate(
+    const DWAPlanner::State& start,
+    const DWAPlanner::State& goal,
+    double T,
+    int N)
+{
+    std::vector<DWAPlanner::State> traj;
+    double dx = goal.x_ - start.x_;
+    double dy = goal.y_ - start.y_;
+    double dyaw = goal.yaw_ - start.yaw_;
+
+    // 角度归一化
+    while (dyaw >  M_PI) dyaw -= 2*M_PI;
+    while (dyaw < -M_PI) dyaw += 2*M_PI;
+
+    for (int i = 0; i <= N; ++i)
+    {
+        double t = double(i) / N * T;
+        double s = 10*pow(t/T,3)
+                 -15*pow(t/T,4)
+                 + 6*pow(t/T,5);
+
+        DWAPlanner::State p;
+        p.x_   = start.x_ + dx * s;
+        p.y_   = start.y_ + dy * s;
+        p.yaw_ = start.yaw_ + dyaw * s;
+        traj.push_back(p);
+    }
+    return traj;
+}
+
+void DWAPlanner::quadraticBSplineInterp(
+    const Eigen::Vector2d& Q0,
+    const Eigen::Vector2d& Q1,
+    const Eigen::Vector2d& Q2,
+    Eigen::Vector2d& P0,
+    Eigen::Vector2d& P1,
+    Eigen::Vector2d& P2)
+{
+    Eigen::Matrix3d A;
+    A << 1, 1, 0,
+         1, 4, 1,
+         0, 1, 1;
+
+    Eigen::Vector3d Qx, Qy;
+    Qx << 2*Q0.x(), 6*Q1.x(), 2*Q2.x();
+    Qy << 2*Q0.y(), 6*Q1.y(), 2*Q2.y();
+
+    Eigen::Vector3d Px = A.inverse() * Qx;
+    Eigen::Vector3d Py = A.inverse() * Qy;
+
+    P0 << Px(0), Py(0);
+    P1 << Px(1), Py(1);
+    P2 << Px(2), Py(2);
+}
+
+Eigen::Vector2d DWAPlanner::evalQuadraticBSpline(
+    const Eigen::Vector2d& P0,
+    const Eigen::Vector2d& P1,
+    const Eigen::Vector2d& P2,
+    double u)   // u ∈ [0,1]
+{
+    double N0 = (1-u)*(1-u) / 2.0;
+    double N1 = (-2*u*u + 2*u + 1) / 2.0;
+    double N2 = u*u / 2.0;
+
+    return N0*P0 + N1*P1 + N2*P2;
+}
+/*
+Q0:起点
+Q1:中间点
+Q2:终点
+N:10~20，6~10.
+
+*/
+std::vector<DWAPlanner::State> DWAPlanner::generateTrajectory(
+    const Eigen::Vector2d& Q0,
+    const Eigen::Vector2d& Q1,
+    const Eigen::Vector2d& Q2,
+    int N)
+{
+    Eigen::Vector2d P0,P1,P2;
+    quadraticBSplineInterp(Q0,Q1,Q2,P0,P1,P2);
+
+    std::vector<Eigen::Vector2d> traj;
+    for (int i=0;i<N;++i){
+        double u = double(i)/(N-1);
+        traj.push_back(evalQuadraticBSpline(P0,P1,P2,u));
+    }
+
+    //vector 转 state
+    std::vector<DWAPlanner::State> res;
+    for(auto t:traj)
+    {
+      DWAPlanner::State state;
+      state.x_ = t.x();
+      state.y_ = t.y();
+      res.push_back(state);
+    }
+    return res;
+}
+
+std::vector<DWAPlanner::State> DWAPlanner::sampleBSpline(   
+    const Eigen::Vector2d& P0,
+    const Eigen::Vector2d& P1,
+    const Eigen::Vector2d& P2,int N) {
+    std::vector<Eigen::Vector2d> traj;
+
+    for (int i = 0; i < N; ++i) {
+        double t = static_cast<double>(i) / (N - 1);
+        Eigen::Vector2d pt = (1.0 - t) * (1.0 - t) * P0 
+                   + 2.0 * t * (1.0 - t) * P1
+                   + t * t * P2;
+        traj.push_back(pt);
+    }
+
+    std::vector<DWAPlanner::State> res;
+    for(auto t:traj)
+    {
+      DWAPlanner::State state;
+      state.x_ = t.x();
+      state.y_ = t.y();
+      res.push_back(state);
+    }
+    return res;
+}
+
+
+
 
