@@ -42,7 +42,8 @@
 #include <thread>
 #include <chrono>
 #include <sensor_msgs/PointCloud2.h>
-
+#include <sensor_msgs/point_cloud2_iterator.h>
+#include <cstring>
 
 /**
  * @class DWAPlanner
@@ -642,6 +643,8 @@ struct SCurve1D
       const Eigen::Vector2d& Q0,
       const Eigen::Vector2d& Q1,
       const Eigen::Vector2d& Q2,int N); 
+  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
+  std::vector<State> generate_trajectory3(State &state);
 protected:
   std::string global_frame_;
   std::string robot_frame_;
@@ -707,6 +710,7 @@ protected:
   ros::Subscriber odom_sub_;
   ros::Subscriber scan_sub_;
   ros::Subscriber target_velocity_sub_;
+  ros::Subscriber pointcloud2_sub_;
 
   geometry_msgs::Twist current_cmd_vel_;
   std::optional<geometry_msgs::PoseStamped> goal_msg_;

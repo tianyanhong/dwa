@@ -26,6 +26,7 @@
     <arg name="footprint" default="/footprint"/>
     <arg name="path" default="/path"/>
     <arg name="target_velocity" default="/target_velocity"/>
+    <arg name="pub_pointcloud" default="/pub_pointcloud"/>
 
     <!-- run dwa_planner node -->
     <node pkg="dwa_planner" type="dwa_planner" name="dwa_planner" output="screen" ns="$(arg ns)">
