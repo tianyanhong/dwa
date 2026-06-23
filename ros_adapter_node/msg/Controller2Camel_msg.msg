@@ -1,0 +1,16 @@
+uint32    id
+float32   Vx
+float32   Vy
+float32   w
+uint16    status
+uint16[5] alarmCode
+float32   od1
+float32   od2
+uint16    indexFromEnd
+uint8     dataClearDone
+uint8     autoObsAvoid
+uint8     cir_Flag
+uint8     terminal_status
+uint8     rotate_finished
+uint8     typevw
+Coord_msg coord

@@ -1,0 +1,4 @@
+---
+# 0表示成功，其它表示错误码
+string route
+string targetStation

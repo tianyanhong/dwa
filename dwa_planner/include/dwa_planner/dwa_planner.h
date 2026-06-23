@@ -45,6 +45,8 @@
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <cstring>
 
+#include "ros_adapter_node/Controller2Camel_msg.h"
+
 /**
  * @class DWAPlanner
  * @brief A class implementing a local planner using the Dynamic Window Approach
@@ -56,6 +58,8 @@ public:
    * @brief Constructor for the DWAPlanner
    */
   DWAPlanner(void);
+
+typedef ros_adapter_node::Controller2Camel_msg::ConstPtr ControllerMsgPtr;
 struct VehicleParams
 {
   double length;       // 车长
@@ -106,7 +110,21 @@ struct VehicleParams
   }
 };
 
+struct VoxelKey {
+  int x, y, z;
 
+  bool operator==(const VoxelKey& o) const {
+    return x == o.x && y == o.y && z == o.z;
+  }
+};
+
+struct VoxelHash {
+  std::size_t operator()(const VoxelKey& k) const {
+    return ((std::uint64_t)k.x << 40) ^
+           ((std::uint64_t)k.y << 20) ^
+           ((std::uint64_t)k.z);
+  }
+};
 
 enum class FootprintRegion
 {
@@ -273,14 +291,14 @@ struct SCurve1D
     //执行A*的相关数据结构
   struct Node
   {
-    int lable;
+    bool lable = false;
     State state;
     double g, h;  //g是到目标点的 h是距离的。
     std::vector<State> path_points;
     Node* parent;
     //路径点
 
-    double f() const { return g + h; }
+    double f() const { return g; } //+ h
   };
 
   struct NodeComparator
@@ -596,7 +614,7 @@ struct SCurve1D
       const State& end,
       double dt,
       int num_points);
-  std::vector<Node*> AstartSearch(State start,State goal);
+  // std::vector<Node*> AstartSearch(State start,State goal);
   double heuristic(const State& start,const State& end) const;
   bool isInsidePolygon(const geometry_msgs::Point& p,
                      const geometry_msgs::PolygonStamped& poly);
@@ -605,13 +623,13 @@ struct SCurve1D
   bool valid(double v,double w);
   float calc_obs_cost2(const State &state);
 
-  std::vector<State> AstartSearch2(State start,const Eigen::Vector3d goal);
+  std::vector<State> AstarSearch2(State start,const Eigen::Vector3d goal);
 
   std::vector<Node*>
   dwa_planning2(Node* start,const Eigen::Vector3d goal);
 
   std::vector<State> generate_trajectory2(State state,const double velocity, const double yawrate);
-  float calc_predict_path_cost(const std::vector<State> &traj,const State& goal);
+  float calc_predict_path_cost(const std::vector<State> &traj,const State& goal,State &min_dis_state);
   bool calc_obs_cost3(const std::vector<State> &traj);
   double getYawFromPose(const geometry_msgs::PoseStamped& pose);
   std::vector<State> smoothInterpolate(
@@ -643,8 +661,24 @@ struct SCurve1D
       const Eigen::Vector2d& Q0,
       const Eigen::Vector2d& Q1,
       const Eigen::Vector2d& Q2,int N); 
-  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
+  void cloudCallback1(const sensor_msgs::PointCloud2ConstPtr& msg);
+  void cloudCallback2(const sensor_msgs::PointCloud2ConstPtr& msg);
+  void cloudCallback3(const sensor_msgs::PointCloud2ConstPtr& msg);
+  void cloudCallback4(const sensor_msgs::PointCloud2ConstPtr& msg);
+
   std::vector<State> generate_trajectory3(State &state);
+  
+  double bSplineBasis(int i, int p, double t,
+                    const std::vector<double>& knots);
+
+  std::vector<State> sampleBSpline2(const std::vector<Eigen::Vector2d>& controlPoints, int N);
+  std::vector<State> sampleCubicBSpline(const Eigen::Vector2d& P0, const Eigen::Vector2d& P1, const Eigen::Vector2d& P2,int N);
+  Eigen::Vector2d ControlPointP1(State &s1, State &s2);
+  void get_goal_msg();
+  void ControlMsgCallback(const ControllerMsgPtr &controller_msg_ptr);
+  std::shared_ptr<std::vector<geometry_msgs::Point>> downsample(
+    const std::shared_ptr<const std::vector<geometry_msgs::Point>>& pts,
+      double resolution);
 protected:
   std::string global_frame_;
   std::string robot_frame_;
@@ -701,6 +735,7 @@ protected:
   ros::Publisher finish_flag_pub_;
   ros::Publisher path_cloud_pub_;
   ros::Publisher cloud_pub_;
+  ros::Publisher new_agv_path_cloud_pub_;
 
   ros::Subscriber dist_to_goal_th_sub_;
   ros::Subscriber edge_on_global_path_sub_;
@@ -710,13 +745,17 @@ protected:
   ros::Subscriber odom_sub_;
   ros::Subscriber scan_sub_;
   ros::Subscriber target_velocity_sub_;
-  ros::Subscriber pointcloud2_sub_;
+  ros::Subscriber pointcloud2_sub1_;
+  ros::Subscriber pointcloud2_sub2_;
+  ros::Subscriber pointcloud2_sub3_;
+  ros::Subscriber pointcloud2_sub4_;
+  ros::Subscriber control_data_sub_;
 
   geometry_msgs::Twist current_cmd_vel_;
   std::optional<geometry_msgs::PoseStamped> goal_msg_;
   geometry_msgs::PoseArray obs_list_;
-  std::vector<geometry_msgs::Point> obstacles_points_;
-  std::optional<geometry_msgs::PolygonStamped> footprint_;//footprint_可能存在，也可能不存在
+  std::shared_ptr<std::vector<geometry_msgs::Point>> obstacles_points_;
+  geometry_msgs::PolygonStamped footprint_;//footprint_可能存在，也可能不存在
   std::optional<nav_msgs::Path> edge_points_on_path_;
 
   std_msgs::Bool has_finished_;
@@ -732,7 +771,9 @@ protected:
 
   std::unordered_map<int, Node*> nodes_;
   std::priority_queue<Node*, std::vector<Node*>, NodeComparator> open_;
-  
+  float local_path_length = 0.0;
+  double wait_time_ = 1.0;
+  bool is_car_stop_  = true;
 };
 
 #endif  // DWA_PLANNER_DWA_PLANNER_H

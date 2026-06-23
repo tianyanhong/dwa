@@ -1,0 +1,4 @@
+# MyCustomService.srv
+float64 err_threshold
+---
+bool  response_value

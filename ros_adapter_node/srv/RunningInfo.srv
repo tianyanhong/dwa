@@ -1,0 +1,13 @@
+---
+# 
+int32   mode
+int32   status
+float32 vxReal
+float32 vyReal
+float32 wReal
+float32 vxExp
+float32 vyExp
+float32 wExp
+float32 battery
+int32   chargeState
+bool cargo

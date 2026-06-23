@@ -1,0 +1,3 @@
+uint8 on_reset_press
+uint8 on_reset_release
+uint8 on_reset_long_press

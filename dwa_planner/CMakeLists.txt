@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   tf2
   tf2_geometry_msgs
+  ros_adapter_node
 )
 find_package(Eigen3 REQUIRED COMPONENTS system)
 

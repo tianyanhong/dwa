@@ -1,0 +1,2 @@
+bool   InManualCharging
+bool   SemiAutomaticMode

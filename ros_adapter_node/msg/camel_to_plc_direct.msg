@@ -1,0 +1,11 @@
+uint64   u64ObstacleArea
+uint16   u16BrakeSignal
+uint16   u16CargoType
+uint16   u16CargoWeight
+uint16   u16Enable
+uint16   u16CamelAlarm
+uint16   u16TurnType
+uint16   u16ForkLight
+bool     beginStart
+bool	 musicPause
+bool	 finishMusic

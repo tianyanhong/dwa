@@ -1,0 +1,1 @@
+Point_msg[]    point

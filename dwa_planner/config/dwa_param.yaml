@@ -3,7 +3,7 @@ TARGET_VELOCITY: 0.5 #1.0 #0.55 # [m/s]
 
 # Simulation Parameters
 PREDICT_TIME: 2.0    # [s]  #决定了仿真路径的长度
-SIM_TIME_SAMPLES: 10         #路径的点数
+SIM_TIME_SAMPLES: 7         #路径的点数
 SIM_PERIOD: 0.1       # [s]
 SIM_DIRECTION: 0.8  #1.57   # [rad]
 SLOW_VELOCITY_TH: 0.1 # [m/s]
@@ -24,3 +24,4 @@ TURN_DIRECTION_THRESHOLD: 0.1 # [rad]
 
 # Other Parameters
 ANGLE_TO_GOAL_TH: 0.1 #pi # [rad]    #到目标点的角度阈值
+wait_time: 10.0

@@ -1,0 +1,25 @@
+<launch>
+
+  <!-- 参数文件 -->
+  <arg name="config_file"
+       default="$(find pub_data_bag)/config/config.yaml" />
+
+  <!-- 加载参数 -->
+  <rosparam command="load"
+           file="$(arg config_file)" />
+
+  <!-- 启动节点 -->
+  <node pkg="pub_data_bag"
+        type="pub_data_bag_node"
+        name="pub_data_bag_node"
+        output="screen"
+        required="true">
+
+    <!-- 可选：私有命名空间参数覆盖 -->
+    <!--
+    <param name="publish_rate" value="20.0" />
+    -->
+
+  </node>
+
+</launch>

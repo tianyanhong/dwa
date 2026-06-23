@@ -1,0 +1,6 @@
+---
+#左/右光电信号
+int32 leftOpticalSignal
+int32 rightOpticalSignal
+#货叉档位
+int32 forkGear

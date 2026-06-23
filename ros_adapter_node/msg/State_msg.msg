@@ -1,0 +1,9 @@
+uint32 id
+bool enable
+uint16 status
+uint8 mode
+uint8 dataClear
+uint8 rotate_type
+float32 rotate_goal
+uint8 cargo
+uint8 control_mode

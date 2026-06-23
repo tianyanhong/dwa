@@ -1,0 +1,11 @@
+# 1表示启动末端定位，0表示关闭末端定位
+bool flag
+# 目标点位姿（位置+角度）
+geometry_msgs/Pose pose 
+# 目标类型
+int32 target_type
+---
+# 0表示成功，其它表示错误码
+int32 errorcode
+# 错误消息
+string errormsg

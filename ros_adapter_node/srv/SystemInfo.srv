@@ -1,0 +1,9 @@
+---
+# 
+string  carName
+string  version
+string  mapInfo
+string  ipAddr
+string  mac
+float32 cpuUsage
+float32 memUsage

@@ -1,0 +1,11 @@
+bool terminal_enable
+bool isdatavalid
+float32 deltax
+float32 deltay
+float32 deltatheta
+float32 distance_maxerror
+float32 angle_maxerror
+uint8 terminal_type
+uint8 check_point
+uint8 expect_ID
+uint8 real_ID

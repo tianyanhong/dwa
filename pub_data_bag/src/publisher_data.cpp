@@ -338,13 +338,22 @@ int main(int argc, char** argv)
 
   tf::TransformBroadcaster odom_broadcaster;
 
+  float radius_, radius_x_, radius_y_, length_, width_, rectangle_x_, rectangle_y_;
+  nh.param<float>("radius", radius_, 0.5);
+  nh.param<float>("radius_x", radius_x_, 1.5);
+  nh.param<float>("radius_y", radius_y_, -1.0);
+  nh.param<float>("length", length_, 0.8);
+  nh.param<float>("width", width_, 0.5);
+  nh.param<float>("rectangle_x", rectangle_x_, 3.0);
+  nh.param<float>("rectangle_y", rectangle_y_, 0.0);
+
   ros::Rate rate(20);
-
-  std::vector<Eigen::Vector3f> points1 = circle(0.5,200,{2.0,0.0,0.0});
-
-  std::vector<Eigen::Vector3f> points2 = rectangle(0.5, 0.5, 50, {3.0, 0.4, 0.0});
+  std::vector<Eigen::Vector3f> points1 = circle(radius_,200,{radius_x_,radius_y_,0.0});
+  std::vector<Eigen::Vector3f> points2 = rectangle(length_, width_, 50, {rectangle_x_, rectangle_y_, 0.0});
+  std::vector<Eigen::Vector3f> points3 = rectangle(length_, width_, 50, {rectangle_x_, -rectangle_y_, 0.0});
   points1.insert(points1.end(), points2.begin(), points2.end());
-  ROS_INFO("points1 size = %d",points1.size());
+  points1.insert(points1.end(), points3.begin(), points3.end());
+
 
   while (ros::ok())
   {

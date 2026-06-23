@@ -3,6 +3,7 @@
 <launch>
     <arg name="ns" default="local_planner"/>
 
+
     <!-- param -->
     <arg name="dwa_param" default="$(find dwa_planner)/config/dwa_param.yaml"/>
     <arg name="robot_param" default="$(find dwa_planner)/config/robot_param.yaml"/>
@@ -22,11 +23,14 @@
     <arg name="local_goal" default="/move_base_simple/goal"/>
     <arg name="odom" default="/odom"/>
     <arg name="dist_to_goal_th" default="/dist_to_goal_th"/>
-    <arg name="scan" default="/scan"/>
+    <arg name="scan" default="/scan2"/>
     <arg name="footprint" default="/footprint"/>
-    <arg name="path" default="/path"/>
+    <arg name="path" default="/agv_path"/>
     <arg name="target_velocity" default="/target_velocity"/>
-    <arg name="pub_pointcloud" default="/pub_pointcloud"/>
+    <arg name="pub_pointcloud1" default="/no_ground_pc1"/>
+    <arg name="pub_pointcloud2" default="/scan2car_pc1"/>
+    <arg name="pub_pointcloud3" default="/scan2car_pc2"/>
+    <arg name="pub_pointcloud4" default="/scan2car_pc3"/>
 
     <!-- run dwa_planner node -->
     <node pkg="dwa_planner" type="dwa_planner" name="dwa_planner" output="screen" ns="$(arg ns)">
@@ -41,6 +45,7 @@
         <param name="USE_FOOTPRINT" value="$(arg use_footprint)"/>
         <param name="USE_PATH_COST" value="$(arg use_path_cost)"/>
         <param name="USE_SCAN_AS_INPUT" value="$(arg use_scan_as_input)"/>
+        <param name="/use_sim_time" value="true" />
         <!-- topic name -->
         <!-- published topics -->
         <remap from="/cmd_vel" to="$(arg cmd_vel)"/>
@@ -53,6 +58,10 @@
         <remap from="/footprint" to="$(arg footprint)"/>
         <remap from="/path" to="$(arg path)"/>
         <remap from="/target_velocity" to="$(arg target_velocity)"/>
+        <remap from="/pub_pointcloud1" to="$(arg pub_pointcloud1)"/>
+        <remap from="/pub_pointcloud2" to="$(arg pub_pointcloud2)"/>
+        <remap from="/pub_pointcloud3" to="$(arg pub_pointcloud3)"/>
+        <remap from="/pub_pointcloud4" to="$(arg pub_pointcloud4)"/>
     </node>
   <!-- <node
     pkg="rviz"

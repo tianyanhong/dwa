@@ -1,0 +1,5 @@
+# 1: 申请避障区域 2：释放避障区域
+uint32 operation
+---
+# 0表示成功，其它表示错误码
+int32 errorcode

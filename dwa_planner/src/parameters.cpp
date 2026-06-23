@@ -11,10 +11,10 @@ void DWAPlanner::load_params(void)
   local_nh_.param<double>("ANGLE_RESOLUTION", angle_resolution_, 0.087);
   local_nh_.param<double>("ANGLE_TO_GOAL_TH", angle_to_goal_th_, 0); //到目标点的角度阈值
   // - F -
-  local_nh_.param<double>("FOOTPRINT_PADDING", footprint_padding_, 0.01);
+  local_nh_.param<double>("FOOTPRINT_PADDING", footprint_padding_, 0.03);
   // - G -
   local_nh_.param<std::string>("GLOBAL_FRAME", global_frame_, std::string("map"));
-  local_nh_.param<double>("GOAL_THRESHOLD", dist_to_goal_th_, 5);  //到目标点的距离阈值
+  local_nh_.param<double>("GOAL_THRESHOLD", dist_to_goal_th_, 0.5);  //到目标点的距离阈值
   // - H -
   local_nh_.param<double>("HZ", hz_, 20);
   // - M -
@@ -57,6 +57,7 @@ void DWAPlanner::load_params(void)
   local_nh_.param<double>("V_PATH_WIDTH", v_path_width_, 0.8);
   // - Y -
   local_nh_.param<int>("YAWRATE_SAMPLES", yawrate_samples_, 10); //运动抖动明显减少该参数
+  local_nh_.param<double>("wait_time", wait_time_, 1.0);
 
   target_velocity_ = std::min(target_velocity_, max_velocity_);
 }
