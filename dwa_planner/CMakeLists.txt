@@ -45,6 +45,14 @@ target_link_libraries(dwa_planner
 install(TARGETS dwa_planner
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+install(DIRECTORY config launch
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/
+    )
+install(TARGETS dwa_planner_lib
+    LIBRARY DESTINATION lib          # Linux .so
+    ARCHIVE DESTINATION lib          # Windows .lib / Linux .a
+    RUNTIME DESTINATION bin          # Windows .dll
+)
 
 #############
 ## Testing ##

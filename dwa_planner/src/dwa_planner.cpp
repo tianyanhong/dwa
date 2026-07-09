@@ -207,7 +207,7 @@ void DWAPlanner::edge_on_global_path_callback(const nav_msgs::PathConstPtr &msg)
   {
     return;
   }else{
-    ROS_INFO("has path data");
+    ROS_INFO("get  agv_path data");
   }
   if (!use_path_cost_)
     return;
@@ -217,6 +217,7 @@ void DWAPlanner::edge_on_global_path_callback(const nav_msgs::PathConstPtr &msg)
   {
     int n = 0;
     local_path_length = 0.0;
+    local_path_.clear();
     for (auto &pose : edge_points_on_path_.value().poses)
     {
       //local_path 本来就是base_link下的
@@ -516,7 +517,7 @@ void DWAPlanner::process(void)
     auto end_t = std::chrono::high_resolution_clock::now();
     auto duration_t = std::chrono::duration_cast<std::chrono::milliseconds>(end_t - start_t).count();
     double sec = duration_t / 1000.0;
-    // ROS_INFO("use time = %.3f s", sec);
+    ROS_INFO("use time = %.3f s", sec); 
     if (can_move())
       cmd_vel = calc_cmd_vel();
     velocity_pub_.publish(cmd_vel);
@@ -559,21 +560,21 @@ bool DWAPlanner::can_move(void)
   // if (!scan_updated_)
   //   scan_not_subscribe_count_++;
 
-  if (edge_points_on_path_.has_value() && goal_msg_.has_value() && !obstacles_points_->empty())//&& is_car_stop_
+  if (edge_points_on_path_.has_value() && goal_msg_.has_value() )//&& !obstacles_points_->empty()&& is_car_stop_
   {
     if(local_path_length < 1.0)
     {
-      ROS_INFO("not can move");
+      ROS_INFO("local_path_length < 0.1, not can move");
       return false;
     }else{
-      ROS_INFO("can move");
+      ROS_INFO("local_path_length > 0.1, can move");
       return true;
     }
     
   } //odom_not_subscribe_count_ <= subscribe_count_th_ ,footprint_.has_value() && goal_msg_.has_value()&& local_map_not_subscribe_count_ <= subscribe_count_th_ scan_not_subscribe_count_ <= subscribe_count_th_ 
   else
   {
-    // ROS_INFO("not can move");
+    ROS_INFO("without agv_path or goal msg");
     return false;
   }
     
