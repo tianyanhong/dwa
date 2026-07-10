@@ -10,7 +10,7 @@
 DWAPlanner::DWAPlanner(void)
     : local_nh_("~"), odom_updated_(false), local_map_updated_(false), scan_updated_(false), has_reached_(false),
       use_speed_cost_(false), odom_not_subscribe_count_(0), local_map_not_subscribe_count_(0),
-      scan_not_subscribe_count_(0), vehicle_(1.67, 0.8, 0.52) 
+      scan_not_subscribe_count_(0), vehicle_(1.76, 1.0, 0.34) 
 {
   load_params();
 
@@ -126,7 +126,7 @@ void DWAPlanner::goal_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 }
 
 void DWAPlanner::ControlMsgCallback(const ControllerMsgPtr &controller_msg_ptr) {
-    if(std::abs(controller_msg_ptr->Vx) < 0.1)
+    if(std::abs(controller_msg_ptr->Vx) < 0.01)
     {
       is_car_stop_ = true;
     }else{
@@ -514,10 +514,15 @@ void DWAPlanner::process(void)
     // 对点云进行降采样
     auto  start_t = std::chrono::high_resolution_clock::now();
     obstacles_points_ = downsample(obstacles_points_,0.03);
+    if(!obstacles_points_->empty())
+    {
+      //todo 返回base_link 到 agv_path 的点
+
+    }
     auto end_t = std::chrono::high_resolution_clock::now();
     auto duration_t = std::chrono::duration_cast<std::chrono::milliseconds>(end_t - start_t).count();
     double sec = duration_t / 1000.0;
-    ROS_INFO("use time = %.3f s", sec); 
+    ROS_INFO("can_move() %d", can_move()); 
     if (can_move())
       cmd_vel = calc_cmd_vel();
     velocity_pub_.publish(cmd_vel);
@@ -560,21 +565,21 @@ bool DWAPlanner::can_move(void)
   // if (!scan_updated_)
   //   scan_not_subscribe_count_++;
 
-  if (edge_points_on_path_.has_value() && goal_msg_.has_value() )//&& !obstacles_points_->empty()&& is_car_stop_
+  if (edge_points_on_path_.has_value() && goal_msg_.has_value() && !obstacles_points_->empty()&& is_car_stop_)//
   {
     if(local_path_length < 1.0)
     {
       ROS_INFO("local_path_length < 0.1, not can move");
       return false;
     }else{
-      ROS_INFO("local_path_length > 0.1, can move");
+      // ROS_INFO("local_path_length > 0.1, can move");
       return true;
     }
     
   } //odom_not_subscribe_count_ <= subscribe_count_th_ ,footprint_.has_value() && goal_msg_.has_value()&& local_map_not_subscribe_count_ <= subscribe_count_th_ scan_not_subscribe_count_ <= subscribe_count_th_ 
   else
   {
-    ROS_INFO("without agv_path or goal msg");
+    // ROS_INFO("without agv_path or goal msg");
     return false;
   }
     
@@ -607,7 +612,6 @@ geometry_msgs::Twist DWAPlanner::calc_cmd_vel(void)
     use_speed_cost_ = true;
   State current(0.0,0.0,0.0,0.0,0.0,0);
   State end(goal_.pose.position.x,goal_.pose.position.y,0.0,0.0,0.0,0);
-  ROS_INFO("goal_.pose.position.x %lf,goal_.pose.position.y%lf",goal_.pose.position.x,goal_.pose.position.y);
   
   //机器人当前位置到目标的平面的距离
   if (dist_to_goal_th_ < goal.segment(0, 2).norm() && !has_reached_)
@@ -622,7 +626,7 @@ geometry_msgs::Twist DWAPlanner::calc_cmd_vel(void)
     auto duration_t2 = std::chrono::duration_cast<std::chrono::milliseconds>(end_t - start_t).count();
 
     double sec = duration_t2 / 1000.0;
-    ROS_INFO("use time = %.3f s", sec);
+    // ROS_INFO("use time = %.3f s", sec);
 
     for(auto p:path)
     {
@@ -632,6 +636,7 @@ geometry_msgs::Twist DWAPlanner::calc_cmd_vel(void)
     nav_msgs::Path new_path;
     new_path.header.frame_id = "map";
     // new_path.header.stamp = ros::Time::now();
+    std::vector<geometry_msgs::PoseStamped> poses_in_map;
     for(auto p:path)
     {
       geometry_msgs::PoseStamped pose;
@@ -643,14 +648,65 @@ geometry_msgs::Twist DWAPlanner::calc_cmd_vel(void)
 
       // yaw 转四元数（单位：弧度）
       tf2::Quaternion q;
+      ROS_INFO("p.yaw = %f",p.yaw_);
       q.setRPY(0.0, 0.0, p.yaw_); 
       pose.pose.orientation = tf2::toMsg(q);
       listener_.transformPose(global_frame_, ros::Time(0), pose, pose.header.frame_id, pose);
       pose.header.frame_id = "map";
-
+      poses_in_map.push_back(pose);
       new_path.poses.push_back(pose);
     }
-    new_agv_path_cloud_pub_.publish(new_path);
+    nav_msgs::Path uniform_path;
+    uniform_path.header.frame_id = "map";
+    uniform_path.header.stamp = ros::Time::now();
+
+    double step = 0.01; // 5cm
+    geometry_msgs::PoseStamped last_pose = poses_in_map.front();
+    uniform_path.poses.push_back(last_pose);
+
+    for (size_t i = 1; i < poses_in_map.size(); ++i) {
+      const auto& p0 = poses_in_map[i - 1].pose.position;
+      const auto& p1 = poses_in_map[i].pose.position;
+
+      double dx = p1.x - p0.x;
+      double dy = p1.y - p0.y;
+      double seg_len = std::hypot(dx, dy);
+
+      if (seg_len < 1e-6) continue;
+
+      int num_steps = std::floor(seg_len / step);
+      for (int k = 1; k <= num_steps; ++k) {
+        double ratio = (k * step) / seg_len;
+
+        geometry_msgs::PoseStamped interp = poses_in_map[i];
+        interp.pose.position.x = p0.x + dx * ratio;
+        interp.pose.position.y = p0.y + dy * ratio;
+
+        // yaw 线性插值（简单有效）
+        tf2::Quaternion q1;
+        tf2::fromMsg(poses_in_map[i - 1].pose.orientation, q1);
+
+        double roll1, pitch1, yaw1;
+        tf2::Matrix3x3(q1).getRPY(roll1, pitch1, yaw1);
+
+        tf2::Quaternion q2;
+        tf2::fromMsg(poses_in_map[i].pose.orientation, q2);
+
+        double roll2, pitch2, yaw2;
+        tf2::Matrix3x3(q2).getRPY(roll2, pitch2, yaw2);
+
+        double yaw = yaw1 + (yaw2 - yaw1) * ratio;
+
+        tf2::Quaternion q;
+        q.setRPY(0, 0, yaw);
+        interp.pose.orientation = tf2::toMsg(q);
+
+        uniform_path.poses.push_back(interp);
+      }
+    }
+    new_agv_path_cloud_pub_.publish(uniform_path);
+    has_reached_ = true;
+
 
 
     // if (can_adjust_robot_direction(goal)) //有存在碰撞的路径
@@ -1823,10 +1879,8 @@ std::vector<DWAPlanner::State> DWAPlanner::AstarSearch2(DWAPlanner::State start,
   auto start_t = std::chrono::high_resolution_clock::now();
   std::vector<State> path;
   //goal在start的后方
-  if(goal[0] < 0)
-  {
-    target_velocity_ = -target_velocity_;
-  }
+  ROS_INFO("goal[0] = %f",goal[0]);
+
   auto end_t = std::chrono::high_resolution_clock::now();
   while (!open_.empty())
   {
@@ -2026,34 +2080,40 @@ DWAPlanner::dwa_planning2(DWAPlanner::Node* start,const Eigen::Vector3d goal)
       std::max((dynamic_window.max_velocity_ - dynamic_window.min_velocity_) / (velocity_samples_ - 1), DBL_EPSILON);
   const double yawrate_resolution =
       std::max((dynamic_window.max_yawrate_ - dynamic_window.min_yawrate_) / (yawrate_samples_ - 1), DBL_EPSILON);
+  double v = 0.0;
+  if(goal[0] < 0)
+  {
+    v = -target_velocity_;
+  }else{
+    v = target_velocity_;
+  }
 
-    const double v = target_velocity_;//dynamic_window.max_velocity_; 
-    for (int j = 0; j < yawrate_samples_; j++)
+  for (int j = 0; j < yawrate_samples_; j++)
+  {
+    std::pair<std::vector<State>, bool> traj;
+    double y = dynamic_window.min_yawrate_ + yawrate_resolution * j;
+
+    traj.first = generate_trajectory2(start->state,v, y);
+    if(isPathPointInCollision2(traj.first, *obstacles_points_))
     {
-      std::pair<std::vector<State>, bool> traj;
-      double y = dynamic_window.min_yawrate_ + yawrate_resolution * j;
-
-      traj.first = generate_trajectory2(start->state,v, y);
-      if(isPathPointInCollision2(traj.first, *obstacles_points_))
-      {
-        continue;
-      }
-      Node* nb = new Node; 
-      nb->state = traj.first.back();
-      nb->h =  calc_path_cost(traj.first); //start->h + calc_obs_cost(traj.first) + 路线点到障碍物的 = 上一个+当前的。 // 到目标点的
-      nb->parent = start;
-      nb->path_points = start->path_points; 
-      for(auto p:traj.first)
-      {
-        nb->path_points.push_back(p);
-      }
-      std::pair<std::vector<State>, bool> best_traj;
-      best_traj.first = nb->path_points; 
-      best_traj.second = true;
-      trajectories.push_back(nb);
-      trajectories_res.push_back(best_traj);
+      continue;
     }
-    visualize_trajectories(trajectories_res, candidate_trajectories_pub_);  
+    Node* nb = new Node; 
+    nb->state = traj.first.back();
+    nb->h =  calc_path_cost(traj.first); //start->h + calc_obs_cost(traj.first) + 路线点到障碍物的 = 上一个+当前的。 // 到目标点的
+    nb->parent = start;
+    nb->path_points = start->path_points; 
+    for(auto p:traj.first)
+    {
+      nb->path_points.push_back(p);
+    }
+    std::pair<std::vector<State>, bool> best_traj;
+    best_traj.first = nb->path_points; 
+    best_traj.second = true;
+    trajectories.push_back(nb);
+    trajectories_res.push_back(best_traj);
+  }
+  visualize_trajectories(trajectories_res, candidate_trajectories_pub_);  
 
   return trajectories;
 }
