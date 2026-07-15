@@ -1,0 +1,16 @@
+<launch>
+
+  <!-- 使用仿真时间（必须在所有节点之前） -->
+  <!-- <param name="use_sim_time" value="true" /> -->
+  <arg name="path" default="/agv_path"/>
+  <arg name="pub_pointcloud1" default="/pub_pointcloud"/>
+  <arg name="new_agv_path" default="/local_planner/dwa_planner/new_agv_path"/>
+
+
+  <node name="grid_map_node" pkg="raycast_grid_map" type="grid_map_node" output="screen">
+    <remap from="/agv_path" to="$(arg path)"/>
+    <remap from="/no_ground_pc1" to="$(arg pub_pointcloud1)"/>
+    <remap from="/new_agv_path" to="$(arg new_agv_path)"/>
+  </node>
+
+</launch>

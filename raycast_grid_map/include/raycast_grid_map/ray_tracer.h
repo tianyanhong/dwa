@@ -4,13 +4,13 @@
 #include <geometry_msgs/Point.h>
 
 class RayTracer {
-public:
-  RayTracer(GridMap& map, float max_range);
+    public:
+        RayTracer(GridMap& map, float max_range);
 
-  void trace(const geometry_msgs::Point& origin,
-             const geometry_msgs::Point& end);
+        void trace(const geometry_msgs::Point& origin,
+                    const geometry_msgs::Point& end);
 
-private:
-  GridMap& grid_map_;
-  float max_range_;
+    private:
+        GridMap& grid_map_;
+        float max_range_;
 };

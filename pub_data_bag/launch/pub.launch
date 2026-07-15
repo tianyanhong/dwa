@@ -1,25 +1,28 @@
 <launch>
 
-  <!-- 参数文件 -->
-  <arg name="config_file"
-       default="$(find pub_data_bag)/config/config.yaml" />
+    <!-- 参数文件 -->
+    <arg name="config_file"
+        default="$(find pub_data_bag)/config/config.yaml" />
 
-  <!-- 加载参数 -->
-  <rosparam command="load"
-           file="$(arg config_file)" />
+    <!-- 加载参数 -->
+    <rosparam command="load"
+            file="$(arg config_file)" />
 
-  <!-- 启动节点 -->
-  <node pkg="pub_data_bag"
-        type="pub_data_bag_node"
-        name="pub_data_bag_node"
-        output="screen"
-        required="true">
+    <!-- 仿真时间（你前面已经踩过的坑） -->
+    <!-- <param name="use_sim_time" value="false" /> -->
 
-    <!-- 可选：私有命名空间参数覆盖 -->
-    <!--
-    <param name="publish_rate" value="20.0" />
-    -->
+    <!-- 静态 TF：map -> base_link -->
+    <node pkg="tf"
+            type="static_transform_publisher"
+            name="map_to_base"
+            args="0 0 0 0 0 0 map base_link 100" />
 
-  </node>
+    <!-- 数据发布节点 -->
+    <node pkg="pub_data_bag"
+            type="pub_data_bag_node"
+            name="pub_data_bag_node"
+            output="screen"
+            required="true">
+    </node>
 
 </launch>

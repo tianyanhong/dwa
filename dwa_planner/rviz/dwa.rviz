@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Path1
       Splitter Ratio: 0.6411764621734619
     Tree Height: 716
   - Class: rviz/Selection
@@ -150,7 +151,7 @@ Visualization Manager:
       Marker Topic: /local_planner/dwa_planner/candidate_trajectories
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -186,7 +187,7 @@ Visualization Manager:
       Marker Topic: /local_planner/dwa_planner/selected_trajectory
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -194,7 +195,7 @@ Visualization Manager:
       Marker Topic: /local_planner/dwa_planner/predict_footprints
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -274,7 +275,7 @@ Visualization Manager:
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /local_path
+      Topic: /agv_path
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -449,5 +450,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1908
-  X: -32
-  Y: -32
+  X: 1890
+  Y: 198

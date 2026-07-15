@@ -82,6 +82,9 @@ find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs message_generation
 #   Message2.msg
    AGVStatusInfo.msg
    TerminalConfig.msg
+   Obstacle.msg
+   Obstacles_msg.msg
+
  )
 
 ## Generate services in the 'srv' folder

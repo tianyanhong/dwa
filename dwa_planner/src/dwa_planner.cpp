@@ -30,6 +30,7 @@ DWAPlanner::DWAPlanner(void)
   // dist_to_goal_th_sub_ = nh_.subscribe("/dist_to_goal_th", 1, &DWAPlanner::dist_to_goal_th_callback, this);
   edge_on_global_path_sub_ = nh_.subscribe("/path", 1, &DWAPlanner::edge_on_global_path_callback, this); 
   control_data_sub_ = nh_.subscribe("/BsplinesController", 1, &DWAPlanner::ControlMsgCallback, this); 
+  obstacles_detect_sub_ = nh_.subscribe("/Obstacles_msg", 1, &DWAPlanner::ObstaclesMsgCallback, this); 
   // footprint_sub_ = nh_.subscribe("/footprint", 1, &DWAPlanner::footprint_callback, this);
   // goal_sub_ = nh_.subscribe("/move_base_simple/goal", 1, &DWAPlanner::goal_callback, this);
   // local_map_sub_ = nh_.subscribe("/local_map", 1, &DWAPlanner::local_map_callback, this);  不使用这个进行碰撞检测。
@@ -152,6 +153,16 @@ void DWAPlanner::ControlMsgCallback(const ControllerMsgPtr &controller_msg_ptr) 
     // controller_msg.coord = controller_msg_ptr->coord;
 
     // new_controller_data_.push_back(controller_msg);
+}
+
+void DWAPlanner::ObstaclesMsgCallback(const Obstacles_msgConstPtr &obstacles_msg_ptr) {
+    //遇到障碍物持续10s再更新路径
+    if(obstacles_msg_ptr->area == 3)
+    {
+        has_obstacles_ = true;
+    }else{
+        has_obstacles_ = false;
+    }
 }
 
 void DWAPlanner::scan_callback(const sensor_msgs::LaserScanConstPtr &msg)
@@ -565,7 +576,7 @@ bool DWAPlanner::can_move(void)
   // if (!scan_updated_)
   //   scan_not_subscribe_count_++;
 
-  if (edge_points_on_path_.has_value() && goal_msg_.has_value() && !obstacles_points_->empty()&& is_car_stop_)//
+  if (edge_points_on_path_.has_value() && goal_msg_.has_value() && has_obstacles_)
   {
     if(local_path_length < 1.0)
     {

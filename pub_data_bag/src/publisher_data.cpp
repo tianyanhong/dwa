@@ -2,6 +2,7 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <tf/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <std_msgs/Float64.h>
 #include <geometry_msgs/PolygonStamped.h>
 #include <geometry_msgs/Point32.h>
@@ -10,6 +11,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+
 
 void pub_odom(ros::Publisher &odom_pub,tf::TransformBroadcaster &odom_broadcaster)
 {
@@ -52,18 +54,19 @@ void pub_odom(ros::Publisher &odom_pub,tf::TransformBroadcaster &odom_broadcaste
     odom_pub.publish(odom);
 
     // ====== TF ======
-    
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(x, y, 0.0));
-    transform.setRotation(q);
-    odom_broadcaster.sendTransform(
-        tf::StampedTransform(transform, current_time, "odom", "base_link"));
+
     tf::Transform transform2;
     transform2.setOrigin(tf::Vector3(0.0, 0.0, 0.0));
     q.setRPY(0, 0, 0);
     transform2.setRotation(q);
     odom_broadcaster.sendTransform(
         tf::StampedTransform(transform2, current_time, "map", "odom"));
+    
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(x, y, 0.0));
+    transform.setRotation(q);
+    odom_broadcaster.sendTransform(
+        tf::StampedTransform(transform, current_time, "odom", "base_link"));
 
     tf::Transform transform3;
     transform2.setOrigin(tf::Vector3(1.0, 0.0, 0.0));
@@ -309,6 +312,11 @@ std::vector<Eigen::Vector3f> transformShape(
     return res;
 }
 
+void pub_tf()
+{
+
+}
+
 
 
 
@@ -365,6 +373,7 @@ int main(int argc, char** argv)
     pub_path_function(path_pub);
     pub_scan(scan_pub_msg);
     cloud_pub_.publish(pointcloud2);
+
     rate.sleep();
   }
 

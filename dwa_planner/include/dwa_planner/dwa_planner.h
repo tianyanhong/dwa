@@ -48,6 +48,9 @@
 
 #include "ros_adapter_node/Controller2Camel_msg.h"
 
+#include "ros_adapter_node/Obstacle.h"
+#include "ros_adapter_node/Obstacles_msg.h"
+
 /**
  * @class DWAPlanner
  * @brief A class implementing a local planner using the Dynamic Window Approach
@@ -61,6 +64,7 @@ public:
   DWAPlanner(void);
 
 typedef ros_adapter_node::Controller2Camel_msg::ConstPtr ControllerMsgPtr;
+typedef ros_adapter_node::Obstacles_msgConstPtr Obstacles_msgConstPtr;
 struct VehicleParams
 {
   double length;       // 车长
@@ -677,6 +681,7 @@ struct SCurve1D
   Eigen::Vector2d ControlPointP1(State &s1, State &s2);
   void get_goal_msg();
   void ControlMsgCallback(const ControllerMsgPtr &controller_msg_ptr);
+  void ObstaclesMsgCallback(const Obstacles_msgConstPtr &obstacles_msg_ptr);
   std::shared_ptr<std::vector<geometry_msgs::Point>> downsample(
     const std::shared_ptr<const std::vector<geometry_msgs::Point>>& pts,
       double resolution);
@@ -751,6 +756,7 @@ protected:
   ros::Subscriber pointcloud2_sub3_;
   ros::Subscriber pointcloud2_sub4_;
   ros::Subscriber control_data_sub_;
+  ros::Subscriber obstacles_detect_sub_;
 
   geometry_msgs::Twist current_cmd_vel_;
   std::optional<geometry_msgs::PoseStamped> goal_msg_;
@@ -775,6 +781,7 @@ protected:
   float local_path_length = 0.0;
   double wait_time_ = 1.0;
   bool is_car_stop_  = true;
+  bool has_obstacles_ = false;
 };
 
 #endif  // DWA_PLANNER_DWA_PLANNER_H

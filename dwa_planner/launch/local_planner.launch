@@ -33,7 +33,7 @@
     <arg name="pub_pointcloud4" default="/scan2car_pc3"/>
 
     <!-- run dwa_planner node -->
-    <node pkg="dwa_planner" type="dwa_planner" name="dwa_planner" output="screen" ns="$(arg ns)">
+    <node pkg="dwa_planner" type="dwa_planner" name="dwa_planner" output="screen" launch-prefix="gdb -ex run --args" ns="$(arg ns)">
         <!-- param -->
         <rosparam command="load" file="$(arg dwa_param)"/>
         <rosparam command="load" file="$(arg robot_param)"/>

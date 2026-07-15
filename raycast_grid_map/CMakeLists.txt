@@ -4,6 +4,10 @@ project(raycast_grid_map)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
+  tf2_ros
+  tf
+  tf2
+  geometry_msgs
 )
 find_package(Eigen3 REQUIRED COMPONENTS system)
 
@@ -27,3 +31,10 @@ target_link_libraries(grid_map_node
   ${catkin_LIBRARIES}
   # ${EIGEN3_INCLUDE_DIRS}
 )
+
+install(TARGETS grid_map_node
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(DIRECTORY config launch
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/
+    )
